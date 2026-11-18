@@ -1,0 +1,64 @@
+name: Assignment Portal CI
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run automated tests
+        id: tests
+        continue-on-error: true
+        run: pytest -q --json-report --json-report-file=pytest-report.json
+
+      - name: Build actual test report
+        if: always()
+        run: python build_report.py
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Upload JSON report as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ github.run_id }}
+          path: test-report.json
+          if-no-files-found: error
+
+      - name: Send report to local computer
+        if: always() && env.RECEIVER_URL != ''
+        env:
+          RECEIVER_URL: ${{ secrets.RECEIVER_URL }}
+          RECEIVER_TOKEN: ${{ secrets.RECEIVER_TOKEN }}
+        run: |
+          curl --fail --show-error \
+            -H "Authorization: Bearer $RECEIVER_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @test-report.json \
+            "$RECEIVER_URL/report"
+
+      - name: Fail workflow if tests failed
+        if: always() && steps.tests.outcome == 'failure'
+        run: |
+          echo "One or more automated tests failed."
+          exit 1

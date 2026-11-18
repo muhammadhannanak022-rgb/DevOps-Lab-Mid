@@ -1,0 +1,38 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+import json
+import os
+
+HOST = "0.0.0.0"
+PORT = int(os.environ.get("RECEIVER_PORT", "9000"))
+TOKEN = os.environ.get("RECEIVER_TOKEN", "CHANGE_THIS_TOKEN")
+OUTPUT = Path("test-report.json")
+
+class ReportHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path != "/report":
+            self.send_error(404, "Use POST /report")
+            return
+        if self.headers.get("Authorization") != f"Bearer {TOKEN}":
+            self.send_error(401, "Unauthorized")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            report = json.loads(self.rfile.read(length).decode("utf-8"))
+            OUTPUT.write_text(json.dumps(report, indent=2), encoding="utf-8")
+            body = b"Report received and saved."
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            print(f"Saved report to {OUTPUT.resolve()}", flush=True)
+        except Exception as exc:
+            self.send_error(400, str(exc))
+
+    def log_message(self, fmt, *args):
+        print(fmt % args, flush=True)
+
+if __name__ == "__main__":
+    print(f"Report receiver listening on http://{HOST}:{PORT}", flush=True)
+    HTTPServer((HOST, PORT), ReportHandler).serve_forever()
