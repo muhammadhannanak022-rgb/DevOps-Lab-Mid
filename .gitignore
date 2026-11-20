@@ -2,3 +2,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 submissions.json
+
+pytest-report.json
+test-report.json
+
+pytest-report.json
+test-report.json

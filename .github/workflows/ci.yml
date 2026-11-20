@@ -1,3 +1,4 @@
+
 name: Assignment Portal CI
 
 on:
@@ -11,6 +12,10 @@ permissions:
 jobs:
   test-and-report:
     runs-on: ubuntu-latest
+
+    env:
+      RECEIVER_URL: ${{ secrets.RECEIVER_URL }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,44 +26,37 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-json-report
 
       - name: Run automated tests
         id: tests
         continue-on-error: true
-        run: pytest -q --json-report --json-report-file=pytest-report.json
+        run: |
+          pytest --json-report --json-report-file=pytest-report.json
 
-      - name: Build actual test report
+      - name: Build JSON test report
         if: always()
         run: python build_report.py
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-
-      - name: Upload JSON report as workflow artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ github.run_id }}
-          path: test-report.json
-          if-no-files-found: error
 
       - name: Send report to local computer
         if: always() && env.RECEIVER_URL != ''
         env:
-          RECEIVER_URL: ${{ secrets.RECEIVER_URL }}
           RECEIVER_TOKEN: ${{ secrets.RECEIVER_TOKEN }}
         run: |
           curl --fail --show-error \
+            --retry 3 \
             -H "Authorization: Bearer $RECEIVER_TOKEN" \
             -H "Content-Type: application/json" \
             --data-binary @test-report.json \
             "$RECEIVER_URL/report"
 
-      - name: Fail workflow if tests failed
-        if: always() && steps.tests.outcome == 'failure'
+      - name: Fail pipeline if tests failed
+        if: always()
         run: |
-          echo "One or more automated tests failed."
-          exit 1
+          if [ "${{ steps.tests.outcome }}" != "success" ]; then
+            echo "Automated tests failed!"
+            exit 1
+          fi
