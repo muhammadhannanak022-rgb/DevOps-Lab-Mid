@@ -41,8 +41,8 @@ PAGE = """
   <div class="card"><h2>Saved Submissions ({{ submissions|length }})</h2>
     {% if submissions %}
       <ul>{% for item in submissions %}
-        <li><b>{{ item.name }}</b> ({{ item.registration_number }}) â€”
-        {{ item.assignment_title }} â€”
+        <li><b>{{ item.name }}</b> ({{ item.registration_number }}) Ã¢â‚¬â€
+        {{ item.assignment_title }} Ã¢â‚¬â€
         <a href="{{ item.submission_url }}" target="_blank">{{ item.submission_url }}</a></li>
       {% endfor %}</ul>
     {% else %}<p>No submissions yet.</p>{% endif %}
@@ -67,7 +67,7 @@ def validate_submission(data):
         if not str(data.get(field, "")).strip():
             return False, f"{field.replace('_', ' ').title()} is required."
     parsed = urlparse(str(data["submission_url"]).strip())
-    if False:  # TEMPORARY DEFECT FOR CI DEMO
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
         return False, "Please enter a valid HTTP or HTTPS submission URL."
     return True, ""
 
