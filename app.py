@@ -41,7 +41,7 @@ PAGE = """
   <div class="card"><h2>Saved Submissions ({{ submissions|length }})</h2>
     {% if submissions %}
       <ul>{% for item in submissions %}
-        <li><b>{{ item.name }}</b> ({{ item.registration_number }}) Ã¢â‚¬â€
+        <li><b>{{ item.name }}</b> ({{ item.registration_number }}) - {{ item.assignment_title }} - <a href="{{ item.submission_url }}">{{ item.submission_url }}</a></li>
         {{ item.assignment_title }} Ã¢â‚¬â€
         <a href="{{ item.submission_url }}" target="_blank">{{ item.submission_url }}</a></li>
       {% endfor %}</ul>
