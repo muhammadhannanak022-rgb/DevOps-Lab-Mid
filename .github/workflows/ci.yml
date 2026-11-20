@@ -1,4 +1,4 @@
-
+﻿
 name: Assignment Portal CI
 
 on:
@@ -53,6 +53,45 @@ jobs:
             --data-binary @test-report.json \
             "$RECEIVER_URL/report"
 
+      - name: Email CI test report
+        if: always()
+        continue-on-error: true
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os, smtplib
+          from email.message import EmailMessage
+
+          sender = "muhammadhannanak022@gmail.com"
+          recipient = sender
+
+          if not os.environ.get("SMTP_PASSWORD"):
+              print("SMTP_PASSWORD missing; email skipped.")
+              raise SystemExit(0)
+
+          msg = EmailMessage()
+          msg["Subject"] = "DevOps Lab Mid - CI Test Report"
+          msg["From"] = sender
+          msg["To"] = recipient
+          msg.set_content("GitHub Actions CI test report is attached.")
+
+          with open("test-report.json", "rb") as f:
+              msg.add_attachment(
+                  f.read(),
+                  maintype="application",
+                  subtype="json",
+                  filename="test-report.json"
+              )
+
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+              smtp.login(sender, os.environ["SMTP_PASSWORD"])
+              smtp.send_message(msg)
+
+          print("EMAIL SENT SUCCESSFULLY")
+          PY
+
+
       - name: Fail pipeline if tests failed
         if: always()
         run: |
@@ -60,3 +99,30 @@ jobs:
             echo "Automated tests failed!"
             exit 1
           fi
+
+  deploy-pages:
+    needs: test-and-report
+    if: github.ref == 'refs/heads/main' && needs.test-and-report.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
